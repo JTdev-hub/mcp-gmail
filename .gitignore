@@ -1,2 +1,4 @@
 .build/credentials.json
+.build/token.json
 .src/credentials.json
+.src/token.json
