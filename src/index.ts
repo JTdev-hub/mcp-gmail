@@ -14,7 +14,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // If modifying these scopes, delete token.json.
-const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
+const SCOPES = [
+  "https://mail.google.com/",
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/gmail.readonly",
+];
 const TOKEN_PATH = path.join(__dirname, "token.json");
 const CREDENTIALS_PATH = path.join(__dirname, "credentials.json");
 
@@ -81,7 +85,7 @@ async function authorize(): Promise<OAuth2Client> {
  * Lists the labels in the user's account.
  */
 
-async function listLabels<T>(
+async function listLabels(
   auth: OAuth2Client
 ): Promise<gmail_v1.Schema$Label[] | null> {
   const gmail = google.gmail({ version: "v1", auth });
@@ -96,76 +100,130 @@ async function listLabels<T>(
   return labels;
 }
 
-// Run the script
-// authorize()
-//   .then(async (auth) => {
-//     const labels = await listLabels(auth);
-//     labels?.forEach((label) => {
-//       console.log(`Label ID: ${label.id}, Name: ${label.name}`);
-//     });
-//   })
-//   .catch(console.error);
+async function messageList(
+  auth: OAuth2Client,
+  subject: string
+): Promise<gmail_v1.Schema$Message[] | null> {
+  const gmail = google.gmail({ version: "v1", auth });
+  const res = await gmail.users.messages.list({
+    userId: "me",
+    q: `subject:"${subject}"`,
+  });
+  const messageList: gmail_v1.Schema$Message[] | undefined = res.data.messages;
 
-function formatLabels(labels: gmail_v1.Schema$Label): string {
-  return [
-    `ID: ${labels.id || "Unknown"}`,
-    `Name: ${labels.name || "Unknown"}`,
-    `Message List Visibility: ${labels.messageListVisibility || "Unknown"}`,
-    `Label List Visibility: ${labels.labelListVisibility || "Unknown"}`,
-    `Type: ${labels.type || "No headline"}`,
-    "---",
-  ].join("\n");
-}
-
-server.tool("get-labels", "Get Labels from GMail", async ({}) => {
-  const auth = await authorize();
-  const labels = await listLabels(auth);
-
-  const jsonLabels = JSON.stringify(labels);
-
-  if (!jsonLabels) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: "Failed to retrieve labels",
-        },
-      ],
-    };
+  if (!messageList || messageList.length === 0) {
+    console.log("No message found.");
+    return null;
   }
 
-  const formattedLabels = JSON.parse(jsonLabels).map(formatLabels);
-  const labelsText = `Active Labels for :\n\n${formattedLabels.join("\n")}`;
-
-  return {
-    content: [
-      {
-        type: "text",
-        text: labelsText,
-      },
-    ],
-  };
-});
-
-async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("Credentials Path: ", CREDENTIALS_PATH);
-  console.error("GMail MCP Server running on stdio");
+  console.log(messageList);
+  return messageList;
 }
 
-main().catch((error) => {
-  console.error("Fatal error in main():", error);
-  process.exit(1);
-});
+async function getMessage(
+  auth: OAuth2Client,
+  id: string
+): Promise<gmail_v1.Schema$Message | null> {
+  const gmail = google.gmail({ version: "v1", auth });
+  const res = await gmail.users.messages.get({
+    userId: "me",
+    id: id,
+  });
 
-// async function main() {
+  const message: gmail_v1.Schema$Message | undefined = res.data;
+  if (!message) {
+    console.log("No message found.");
+    return null;
+  }
+  return message;
+}
+
+async function deleteMessage(
+  auth: OAuth2Client,
+  id: string
+): Promise<number | null> {
+  const gmail = google.gmail({ version: "v1", auth });
+  const res = await gmail.users.messages.delete({
+    userId: "me",
+    id: id,
+  });
+
+  const messageStatus: number | null = res.status;
+
+  return messageStatus;
+}
+
+// Run the script
+async function displayMessage() {
+  const auth = await authorize();
+  const messageLists = await messageList(auth, "1.4x MORE triceps growth");
+  const message =
+    messageLists && messageLists.length > 0
+      ? await getMessage(auth, messageLists[0].id as string)
+      : "No message";
+
+  console.log(message);
+}
+
+async function removeMessage() {
+  const auth = await authorize();
+  const messageLists = await messageList(auth, "1.4x MORE triceps growth");
+  const message =
+    messageLists && messageLists.length > 0
+      ? await deleteMessage(auth, messageLists[0].id as string)
+      : "No message to be deleted";
+
+  console.log(message);
+}
+
+removeMessage();
+
+// function formatLabels(labels: gmail_v1.Schema$Label): string {
+//   return [
+//     `ID: ${labels.id || "Unknown"}`,
+//     `Name: ${labels.name || "Unknown"}`,
+//     `Message List Visibility: ${labels.messageListVisibility || "Unknown"}`,
+//     `Label List Visibility: ${labels.labelListVisibility || "Unknown"}`,
+//     `Type: ${labels.type || "No headline"}`,
+//     "---",
+//   ].join("\n");
+// }
+
+// server.tool("get-labels", "Get Labels from GMail", async ({}) => {
 //   const auth = await authorize();
 //   const labels = await listLabels(auth);
 
 //   const jsonLabels = JSON.stringify(labels);
 
-//   console.log(jsonLabels);
+//   if (!jsonLabels) {
+//     return {
+//       content: [
+//         {
+//           type: "text",
+//           text: "Failed to retrieve labels",
+//         },
+//       ],
+//     };
+//   }
+
+//   const formattedLabels = JSON.parse(jsonLabels).map(formatLabels);
+//   const labelsText = `Active Labels for :\n\n${formattedLabels.join("\n")}`;
+
+//   return {
+//     content: [
+//       {
+//         type: "text",
+//         text: labelsText,
+//       },
+//     ],
+//   };
+// });
+
+// async function main() {
+//   const transport = new StdioServerTransport();
+//   await server.connect(transport);
+//   console.error("Credentials Path: ", CREDENTIALS_PATH);
+//   console.error("GMail MCP Server running on stdio");
 // }
 
 // main().catch((error) => {
