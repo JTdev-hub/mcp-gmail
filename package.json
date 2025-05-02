@@ -1,0 +1,30 @@
+{
+  "name": "gmail",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc && chmod 755 build/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google-cloud/local-auth": "^2.1.0",
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "googleapis": "^105.0.0",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  },
+  "type": "module",
+  "bin": {
+    "gmail": "./build/index.js"
+  },
+  "files": [
+    "build"
+  ]
+}
